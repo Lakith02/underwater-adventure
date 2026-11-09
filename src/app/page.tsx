@@ -1,69 +1,278 @@
-import Image from "next/image";
+
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+
+import Login from "@/components/authentication/Login";
+import Register from "@/components/authentication/Register";
+import Dashboard from "@/components/dashboard/Dashboard";
+import FishGame from "@/components/game/FishGame";
+
+type PageType = "login" | "register" | "dashboard" | "game" | "completed";
+
+interface PlayerProgress {
+  coins: number;
+  xp: number;
+  level: number;
+}
 
 export default function Home() {
+  const [currentPage, setCurrentPage] = useState<PageType>("login");
+  const [username, setUsername] = useState("");
+  const [coins, setCoins] = useState(0);
+  const [xp, setXp] = useState(0);
+  const [level, setLevel] = useState(1);
+
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const [musicOn, setMusicOn] = useState(false);
+
+  useEffect(() => {
+    const savedUsername = localStorage.getItem("underwaterCurrentPlayer");
+
+    if (savedUsername) {
+      setUsername(savedUsername);
+
+      const savedProgress = localStorage.getItem(
+        `underwaterProgress_${savedUsername}`
+      );
+
+      if (savedProgress) {
+        try {
+          const progress: PlayerProgress = JSON.parse(savedProgress);
+          setCoins(progress.coins);
+          setXp(progress.xp);
+          setLevel(progress.level);
+        } catch {
+          console.error("Could not load player progress.");
+        }
+      }
+
+      setCurrentPage("dashboard");
+    }
+  }, []);
+
+  // Background music
+  const toggleMusic = async () => {
+    if (!audioRef.current) return;
+
+    if (musicOn) {
+      audioRef.current.pause();
+      setMusicOn(false);
+    } else {
+      audioRef.current.volume = 0.12;
+
+      try {
+        await audioRef.current.play();
+        setMusicOn(true);
+      } catch {
+        console.error("Could not play music.");
+      }
+    }
+  };
+
+  // Load player
+  const loadPlayer = (playerName: string) => {
+    setUsername(playerName);
+
+    const savedProgress = localStorage.getItem(
+      `underwaterProgress_${playerName}`
+    );
+
+    if (savedProgress) {
+      try {
+        const progress: PlayerProgress = JSON.parse(savedProgress);
+        setCoins(progress.coins);
+        setXp(progress.xp);
+        setLevel(progress.level);
+      } catch {
+        setCoins(0);
+        setXp(0);
+        setLevel(1);
+      }
+    } else {
+      setCoins(0);
+      setXp(0);
+      setLevel(1);
+    }
+
+    localStorage.setItem("underwaterCurrentPlayer", playerName);
+    setCurrentPage("dashboard");
+  };
+
+  // Logout
+  const handleLogout = () => {
+    localStorage.removeItem("underwaterCurrentPlayer");
+
+    setUsername("");
+    setCoins(0);
+    setXp(0);
+    setLevel(1);
+    setCurrentPage("login");
+  };
+
+  // Add coins after a correct answer
+  const handleReward = (amount: number) => {
+    setCoins((previousCoins) => previousCoins + amount);
+  };
+  // Add XP after a correct chest answer
+  const handleXPReward = (amount: number) => {
+    setXp((previousXP) => previousXP + amount);
+  };
+
+
+
+  // Complete current level
+  const handleLevelComplete = () => {
+    if (level >= 5) {
+      setLevel(6);
+      setCurrentPage("completed");
+    } else {
+      setLevel((previousLevel) => previousLevel + 1);
+      setCurrentPage("dashboard");
+    }
+  };
+  // Restart the entire game
+  const handlePlayAgain = () => {
+    setCoins(0);
+    setXp(0);
+    setLevel(1);
+    setCurrentPage("dashboard");
+  };
+  // Save progress
+  useEffect(() => {
+    if (!username) return;
+
+    const progress: PlayerProgress = {
+      coins,
+      xp,
+      level,
+    };
+
+    localStorage.setItem(
+      `underwaterProgress_${username}`,
+      JSON.stringify(progress)
+    );
+  }, [username, coins, xp, level]);
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
+    <main>
+      <audio
+        ref={audioRef}
+        src="/music/ocean.mp3"
+        loop
+        preload="auto"
+      />
+
+      <button
+        type="button"
+        onClick={toggleMusic}
+        className="fixed bottom-5 right-5 z-50 rounded-full bg-cyan-400 px-5 py-3 font-bold text-blue-950 shadow-lg hover:bg-cyan-300"
+      >
+        {musicOn ? "🔊 Music ON" : "🔇 Music OFF"}
+      </button>
+
+      {currentPage === "login" && (
+        <Login
+          onLogin={loadPlayer}
+          onShowRegister={() => setCurrentPage("register")}
         />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+      )}
+
+      {currentPage === "register" && (
+        <Register
+          onRegister={loadPlayer}
+          onShowLogin={() => setCurrentPage("login")}
+        />
+      )}
+
+      {currentPage === "dashboard" && (
+        <Dashboard
+          username={username}
+          coins={coins}
+          xp={xp}
+          level={level}
+          onPlay={() => setCurrentPage("game")}
+          onLogout={handleLogout}
+        />
+      )}
+
+      {currentPage === "game" && (
+        <FishGame
+          onBack={() => setCurrentPage("dashboard")}
+          onReward={handleReward}
+          onXPReward={handleXPReward}
+          onLevelComplete={handleLevelComplete}
+          level={level}
+        />
+      )}
+      {/* Game Completed Screen */}
+      {currentPage === "completed" && (
+        <section className="flex min-h-screen items-center justify-center bg-gradient-to-b from-[#001b4d] via-[#006994] to-[#00b4d8] p-5">
+
+          <div className="w-full max-w-lg rounded-3xl bg-white p-8 text-center shadow-2xl">
+
+            <div className="mb-4 text-7xl">
+              🏆
+            </div>
+
+            <h1 className="mb-3 text-4xl font-extrabold text-blue-900">
+              Game Completed!
+            </h1>
+
+            <p className="mb-8 text-gray-600">
+              Congratulations! You completed all 5 underwater levels!
+            </p>
+
+            <div className="mb-8 grid grid-cols-2 gap-4">
+
+              <div className="rounded-xl bg-yellow-100 p-5">
+                <p className="text-3xl">🪙</p>
+                <p className="mt-2 text-2xl font-bold text-yellow-700">
+                  {coins}
+                </p>
+                <p className="font-semibold text-gray-700">
+                  Total Coins
+                </p>
+              </div>
+
+              <div className="rounded-xl bg-purple-100 p-5">
+                <p className="text-3xl">⭐</p>
+                <p className="mt-2 text-2xl font-bold text-purple-700">
+                  {xp}
+                </p>
+                <p className="font-semibold text-gray-700">
+                  Total XP
+                </p>
+              </div>
+
+            </div>
+
+            <p className="mb-6 font-bold text-green-600">
+              🌊 You are an Underwater Champion!
+            </p>
+
+            <div className="space-y-3">
+
+              <button
+                onClick={handlePlayAgain}
+                className="w-full rounded-xl bg-cyan-600 py-3 font-bold text-white hover:bg-cyan-700"
+              >
+                🔄 Play Again
+              </button>
+
+              <button
+                onClick={() => setCurrentPage("dashboard")}
+                className="w-full rounded-xl bg-blue-900 py-3 font-bold text-white hover:bg-blue-950"
+              >
+                ← Dashboard
+              </button>
+
+            </div>
+
+          </div>
+
+        </section>
+      )}
+    </main>
   );
 }
