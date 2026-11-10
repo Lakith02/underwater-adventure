@@ -26,6 +26,7 @@ export default function Home() {
   const audioRef = useRef<HTMLAudioElement>(null);
   const [musicOn, setMusicOn] = useState(false);
 
+  // Load saved player when application starts
   useEffect(() => {
     const savedUsername = localStorage.getItem("underwaterCurrentPlayer");
 
@@ -39,6 +40,7 @@ export default function Home() {
       if (savedProgress) {
         try {
           const progress: PlayerProgress = JSON.parse(savedProgress);
+
           setCoins(progress.coins);
           setXp(progress.xp);
           setLevel(progress.level);
@@ -70,7 +72,7 @@ export default function Home() {
     }
   };
 
-  // Load player
+  // Load player after login or registration
   const loadPlayer = (playerName: string) => {
     setUsername(playerName);
 
@@ -81,6 +83,7 @@ export default function Home() {
     if (savedProgress) {
       try {
         const progress: PlayerProgress = JSON.parse(savedProgress);
+
         setCoins(progress.coins);
         setXp(progress.xp);
         setLevel(progress.level);
@@ -110,16 +113,15 @@ export default function Home() {
     setCurrentPage("login");
   };
 
-  // Add coins after a correct answer
+  // Add coins after a correct fish answer
   const handleReward = (amount: number) => {
     setCoins((previousCoins) => previousCoins + amount);
   };
+
   // Add XP after a correct chest answer
   const handleXPReward = (amount: number) => {
     setXp((previousXP) => previousXP + amount);
   };
-
-
 
   // Complete current level
   const handleLevelComplete = () => {
@@ -131,6 +133,7 @@ export default function Home() {
       setCurrentPage("dashboard");
     }
   };
+
   // Restart the entire game
   const handlePlayAgain = () => {
     setCoins(0);
@@ -138,7 +141,8 @@ export default function Home() {
     setLevel(1);
     setCurrentPage("dashboard");
   };
-  // Save progress
+
+  // Save progress to localStorage
   useEffect(() => {
     if (!username) return;
 
@@ -154,6 +158,39 @@ export default function Home() {
     );
   }, [username, coins, xp, level]);
 
+  // Save progress to SQLite leaderboard
+  useEffect(() => {
+    if (!username) return;
+
+    const saveProgress = async () => {
+      try {
+        const response = await fetch("/api/leaderboard", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            username,
+            coins,
+            xp,
+            level,
+          }),
+        });
+
+        if (!response.ok) {
+          console.error(
+            "Failed to save leaderboard progress:",
+            await response.text()
+          );
+        }
+      } catch (error) {
+        console.error("Leaderboard save error:", error);
+      }
+    };
+
+    saveProgress();
+  }, [username, coins, xp, level]);
+
   return (
     <main>
       <audio
@@ -163,6 +200,7 @@ export default function Home() {
         preload="auto"
       />
 
+      {/* Background Music Button */}
       <button
         type="button"
         onClick={toggleMusic}
@@ -171,6 +209,7 @@ export default function Home() {
         {musicOn ? "🔊 Music ON" : "🔇 Music OFF"}
       </button>
 
+      {/* Login Page */}
       {currentPage === "login" && (
         <Login
           onLogin={loadPlayer}
@@ -178,6 +217,7 @@ export default function Home() {
         />
       )}
 
+      {/* Register Page */}
       {currentPage === "register" && (
         <Register
           onRegister={loadPlayer}
@@ -185,6 +225,7 @@ export default function Home() {
         />
       )}
 
+      {/* Dashboard Page */}
       {currentPage === "dashboard" && (
         <Dashboard
           username={username}
@@ -196,6 +237,7 @@ export default function Home() {
         />
       )}
 
+      {/* Game Page */}
       {currentPage === "game" && (
         <FishGame
           onBack={() => setCurrentPage("dashboard")}
@@ -205,10 +247,10 @@ export default function Home() {
           level={level}
         />
       )}
+
       {/* Game Completed Screen */}
       {currentPage === "completed" && (
         <section className="flex min-h-screen items-center justify-center bg-gradient-to-b from-[#001b4d] via-[#006994] to-[#00b4d8] p-5">
-
           <div className="w-full max-w-lg rounded-3xl bg-white p-8 text-center shadow-2xl">
 
             <div className="mb-4 text-7xl">
@@ -227,9 +269,11 @@ export default function Home() {
 
               <div className="rounded-xl bg-yellow-100 p-5">
                 <p className="text-3xl">🪙</p>
+
                 <p className="mt-2 text-2xl font-bold text-yellow-700">
                   {coins}
                 </p>
+
                 <p className="font-semibold text-gray-700">
                   Total Coins
                 </p>
@@ -237,9 +281,11 @@ export default function Home() {
 
               <div className="rounded-xl bg-purple-100 p-5">
                 <p className="text-3xl">⭐</p>
+
                 <p className="mt-2 text-2xl font-bold text-purple-700">
                   {xp}
                 </p>
+
                 <p className="font-semibold text-gray-700">
                   Total XP
                 </p>
@@ -270,7 +316,6 @@ export default function Home() {
             </div>
 
           </div>
-
         </section>
       )}
     </main>

@@ -1,7 +1,9 @@
 
-import { NextResponse } from "next/server";
+import { NextResponse, connection } from "next/server";
 
 export async function GET() {
+    await connection();
+
     try {
         const response = await fetch(
             "http://marcconrad.com/uob/fish/api.php?out=json",
