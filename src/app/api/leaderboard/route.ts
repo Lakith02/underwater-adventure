@@ -1,83 +1,38 @@
 
 import { NextResponse } from "next/server";
-import db from "@/lib/db";
+import pool from "@/lib/mysql";
 
-
-
-
-// Get leaderboard players
 export async function GET() {
     try {
-        const players = db.prepare(`
+        const [rows] = await pool.query(`
             SELECT
-                username,
-                coins,
-                xp,
-                level,
                 RANK() OVER (
-                    ORDER BY xp DESC
-                ) AS rank
+                    ORDER BY players.xp DESC, players.coins DESC
+                ) AS player_rank,
+                users.username,
+                players.coins,
+                players.xp,
+                players.level
             FROM players
-            ORDER BY xp DESC, coins DESC
+            INNER JOIN users
+                ON players.user_id = users.id
+            ORDER BY players.xp DESC, players.coins DESC
             LIMIT 100
-        `).all();
+        `);
 
-        return NextResponse.json({ players });
+        return NextResponse.json({
+            success: true,
+            players: rows,
+        });
+
     } catch (error) {
         console.error("Leaderboard Error:", error);
 
         return NextResponse.json(
-            { error: "Unable to load leaderboard" },
-            { status: 500 }
-        );
-    }
-}
-
-// Save player progress
-export async function POST(request: Request) {
-    try {
-        const body = await request.json();
-
-        const username = String(body.username || "").trim();
-        const coins = Number(body.coins);
-        const xp = Number(body.xp);
-        const level = Number(body.level);
-
-        if (
-            !username ||
-            username.length > 30 ||
-            !Number.isSafeInteger(coins) ||
-            !Number.isSafeInteger(xp) ||
-            !Number.isSafeInteger(level) ||
-            coins < 0 ||
-            xp < 0 ||
-            level < 1
-        ) {
-            return NextResponse.json(
-                { error: "Invalid player data" },
-                { status: 400 }
-            );
-        }
-
-        db.prepare(`
-            INSERT INTO players (username, coins, xp, level)
-            VALUES (?, ?, ?, ?)
-            ON CONFLICT(username) DO UPDATE SET
-                coins = excluded.coins,
-                xp = excluded.xp,
-                level = excluded.level,
-                updated_at = CURRENT_TIMESTAMP
-        `).run(username, coins, xp, level);
-
-        return NextResponse.json({
-            success: true,
-            message: "Player progress saved"
-        });
-    } catch (error) {
-        console.error("Save Progress Error:", error);
-
-        return NextResponse.json(
-            { error: "Unable to save player progress" },
+            {
+                success: false,
+                message: "Unable to load leaderboard",
+            },
             { status: 500 }
         );
     }

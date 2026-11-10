@@ -1,8 +1,7 @@
 
 "use client";
 
-import { useState } from "react";
-
+import { useState, type FormEvent } from "react";
 
 interface RegisterProps {
     onRegister: (username: string) => void;
@@ -14,16 +13,23 @@ export default function Register({
     onShowLogin,
 }: RegisterProps) {
     const [username, setUsername] = useState("");
+    const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
     const [error, setError] = useState("");
+    const [loading, setLoading] = useState(false);
 
-    const handleRegister = (e: React.FormEvent<HTMLFormElement>) => {
+    const handleRegister = async (e: FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         setError("");
 
-        if (password.length < 6) {
-            setError("Password must contain at least 6 characters.");
+        if (username.trim().length < 3) {
+            setError("Username must contain at least 3 characters.");
+            return;
+        }
+
+        if (password.length < 8) {
+            setError("Password must contain at least 8 characters.");
             return;
         }
 
@@ -32,30 +38,36 @@ export default function Register({
             return;
         }
 
-        const players = JSON.parse(
-            localStorage.getItem("underwaterPlayers") || "[]"
-        );
+        setLoading(true);
 
-        const existingPlayer = players.find(
-            (player: { username: string }) =>
-                player.username.toLowerCase() === username.trim().toLowerCase()
-        );
+        try {
+            const response = await fetch("/api/auth/register", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    username: username.trim(),
+                    email: email.trim(),
+                    password,
+                }),
+            });
 
-        if (existingPlayer) {
-            setError("This username is already registered!");
-            return;
+            const data = await response.json();
+
+            if (!response.ok) {
+                setError(data.message || "Registration failed!");
+                return;
+            }
+
+            onRegister(data.username);
+
+        } catch (error) {
+            console.error("Registration Error:", error);
+            setError("Unable to connect to server. Please try again.");
+        } finally {
+            setLoading(false);
         }
-
-        const newPlayer = {
-            username: username.trim(),
-            password,
-        };
-
-        players.push(newPlayer);
-
-        localStorage.setItem("underwaterPlayers", JSON.stringify(players));
-
-        onRegister(newPlayer.username);
     };
 
     return (
@@ -88,6 +100,21 @@ export default function Register({
 
                     <div>
                         <label className="block text-white mb-2">
+                            Email
+                        </label>
+
+                        <input
+                            type="email"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            placeholder="Enter your email"
+                            required
+                            className="w-full rounded-lg p-3 bg-white/90 text-gray-900 outline-none"
+                        />
+                    </div>
+
+                    <div>
+                        <label className="block text-white mb-2">
                             Password
                         </label>
 
@@ -97,6 +124,7 @@ export default function Register({
                             onChange={(e) => setPassword(e.target.value)}
                             placeholder="Create a password"
                             required
+                            minLength={8}
                             className="w-full rounded-lg p-3 bg-white/90 text-gray-900 outline-none"
                         />
                     </div>
@@ -124,9 +152,10 @@ export default function Register({
 
                     <button
                         type="submit"
-                        className="w-full rounded-lg bg-cyan-400 py-3 font-bold text-blue-950 hover:bg-cyan-300 transition"
+                        disabled={loading}
+                        className="w-full rounded-lg bg-cyan-400 py-3 font-bold text-blue-950 hover:bg-cyan-300 transition disabled:opacity-60"
                     >
-                        Create Account
+                        {loading ? "Creating Account..." : "Create Account"}
                     </button>
                 </form>
 

@@ -11,13 +11,12 @@ interface DashboardProps {
     onPlay: () => void;
     onLogout: () => void;
 }
-
 interface LeaderboardPlayer {
     username: string;
     coins: number;
     xp: number;
     level: number;
-    rank: number;
+    player_rank: number;
 }
 
 export default function Dashboard({
@@ -503,7 +502,7 @@ export default function Dashboard({
 
                                                 <td className="px-4 py-4">
                                                     <span className="text-lg font-black">
-                                                        {getRankIcon(player.rank)}
+                                                        {getRankIcon(player.player_rank)}
                                                     </span>
                                                 </td>
 

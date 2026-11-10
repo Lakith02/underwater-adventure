@@ -1,7 +1,7 @@
+
 "use client";
 
-import { useState } from "react";
-
+import { useState, type FormEvent } from "react";
 
 interface LoginProps {
     onLogin: (username: string) => void;
@@ -15,25 +15,41 @@ export default function Login({
     const [username, setUsername] = useState("");
     const [password, setPassword] = useState("");
     const [error, setError] = useState("");
+    const [loading, setLoading] = useState(false);
 
-    const handleLogin = (e: React.FormEvent<HTMLFormElement>) => {
+    const handleLogin = async (e: FormEvent<HTMLFormElement>) => {
         e.preventDefault();
 
-        const players = JSON.parse(
-            localStorage.getItem("underwaterPlayers") || "[]"
-        );
+        setError("");
+        setLoading(true);
 
-        const player = players.find(
-            (p: { username: string; password: string }) =>
-                p.username === username && p.password === password
-        );
+        try {
+            const response = await fetch("/api/auth/login", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    username,
+                    password,
+                }),
+            });
 
-        if (!player) {
-            setError("Invalid username or password!");
-            return;
+            const data = await response.json();
+
+            if (!response.ok) {
+                setError(data.message || "Invalid username or password!");
+                return;
+            }
+
+            onLogin(data.user.username);
+
+        } catch (error) {
+            console.error("Login Error:", error);
+            setError("Unable to connect to server. Please try again.");
+        } finally {
+            setLoading(false);
         }
-
-        onLogin(player.username);
     };
 
     return (
@@ -73,14 +89,17 @@ export default function Login({
                     </div>
 
                     {error && (
-                        <p className="text-red-200 text-sm text-center">{error}</p>
+                        <p className="text-red-200 text-sm text-center">
+                            {error}
+                        </p>
                     )}
 
                     <button
                         type="submit"
-                        className="w-full rounded-lg bg-cyan-400 py-3 font-bold text-blue-950 hover:bg-cyan-300 transition"
+                        disabled={loading}
+                        className="w-full rounded-lg bg-cyan-400 py-3 font-bold text-blue-950 hover:bg-cyan-300 transition disabled:opacity-60"
                     >
-                        Login
+                        {loading ? "Logging in..." : "Login"}
                     </button>
                 </form>
 

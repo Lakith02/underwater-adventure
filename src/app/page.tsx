@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import Login from "@/components/authentication/Login";
 import Register from "@/components/authentication/Register";
@@ -11,6 +11,8 @@ import FishGame from "@/components/game/FishGame";
 type PageType = "login" | "register" | "dashboard" | "game" | "completed";
 
 interface PlayerProgress {
+  id: number;
+  username: string;
   coins: number;
   xp: number;
   level: number;
@@ -18,93 +20,127 @@ interface PlayerProgress {
 
 export default function Home() {
   const [currentPage, setCurrentPage] = useState<PageType>("login");
+
   const [username, setUsername] = useState("");
   const [coins, setCoins] = useState(0);
   const [xp, setXp] = useState(0);
   const [level, setLevel] = useState(1);
 
-  const audioRef = useRef<HTMLAudioElement>(null);
+  const [checkingSession, setCheckingSession] = useState(true);
+
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   const [musicOn, setMusicOn] = useState(false);
 
-  // Load saved player when application starts
-  useEffect(() => {
-    const savedUsername = localStorage.getItem("underwaterCurrentPlayer");
+  // Load logged-in user's session and progress
+  const loadSession = useCallback(async () => {
+    try {
+      const response = await fetch("/api/auth/me", {
+        method: "GET",
+        cache: "no-store",
+      });
 
-    if (savedUsername) {
-      setUsername(savedUsername);
+      const data = await response.json();
 
-      const savedProgress = localStorage.getItem(
-        `underwaterProgress_${savedUsername}`
-      );
+      if (response.ok && data.success && data.user) {
+        const user: PlayerProgress = data.user;
 
-      if (savedProgress) {
-        try {
-          const progress: PlayerProgress = JSON.parse(savedProgress);
+        setUsername(user.username);
+        setCoins(user.coins);
+        setXp(user.xp);
+        setLevel(user.level);
+        setCurrentPage("dashboard");
 
-          setCoins(progress.coins);
-          setXp(progress.xp);
-          setLevel(progress.level);
-        } catch {
-          console.error("Could not load player progress.");
-        }
+        return true;
       }
 
-      setCurrentPage("dashboard");
+      return false;
+    } catch (error) {
+      console.error("Session Loading Error:", error);
+      return false;
     }
   }, []);
 
-  // Background music
-  const toggleMusic = async () => {
-    if (!audioRef.current) return;
+  // Check session when application starts
+  useEffect(() => {
+    const checkSession = async () => {
+      await loadSession();
+      setCheckingSession(false);
+    };
 
-    if (musicOn) {
-      audioRef.current.pause();
-      setMusicOn(false);
-    } else {
-      audioRef.current.volume = 0.12;
+    checkSession();
+  }, [loadSession]);
 
-      try {
-        await audioRef.current.play();
-        setMusicOn(true);
-      } catch {
-        console.error("Could not play music.");
-      }
-    }
-  };
+  // Login and registration success
+  const loadPlayer = async (playerName: string) => {
+    const loaded = await loadSession();
 
-  // Load player after login or registration
-  const loadPlayer = (playerName: string) => {
-    setUsername(playerName);
-
-    const savedProgress = localStorage.getItem(
-      `underwaterProgress_${playerName}`
-    );
-
-    if (savedProgress) {
-      try {
-        const progress: PlayerProgress = JSON.parse(savedProgress);
-
-        setCoins(progress.coins);
-        setXp(progress.xp);
-        setLevel(progress.level);
-      } catch {
-        setCoins(0);
-        setXp(0);
-        setLevel(1);
-      }
-    } else {
+    if (!loaded) {
+      setUsername(playerName);
       setCoins(0);
       setXp(0);
       setLevel(1);
+      setCurrentPage("dashboard");
     }
-
-    localStorage.setItem("underwaterCurrentPlayer", playerName);
-    setCurrentPage("dashboard");
   };
 
+  // Save player progress to MySQL
+  const saveProgress = useCallback(async () => {
+    if (!username) return;
+
+    try {
+      const response = await fetch("/api/progress", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          coins,
+          xp,
+          level,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        console.error("Progress Save Error:", data.message);
+      }
+    } catch (error) {
+      console.error("Progress Save Error:", error);
+    }
+  }, [username, coins, xp, level]);
+
+  // Save progress whenever coins, XP or level changes
+  useEffect(() => {
+    if (
+      checkingSession ||
+      !username ||
+      currentPage === "login" ||
+      currentPage === "register"
+    ) {
+      return;
+    }
+
+    saveProgress();
+  }, [
+    checkingSession,
+    username,
+    coins,
+    xp,
+    level,
+    currentPage,
+    saveProgress,
+  ]);
+
   // Logout
-  const handleLogout = () => {
-    localStorage.removeItem("underwaterCurrentPlayer");
+  const handleLogout = async () => {
+    try {
+      await fetch("/api/auth/logout", {
+        method: "POST",
+      });
+    } catch (error) {
+      console.error("Logout Error:", error);
+    }
 
     setUsername("");
     setCoins(0);
@@ -113,28 +149,37 @@ export default function Home() {
     setCurrentPage("login");
   };
 
-  // Add coins after a correct fish answer
-  const handleReward = (amount: number) => {
-    setCoins((previousCoins) => previousCoins + amount);
+  // Play game
+  const handlePlay = () => {
+    setCurrentPage("game");
   };
 
-  // Add XP after a correct chest answer
-  const handleXPReward = (amount: number) => {
-    setXp((previousXP) => previousXP + amount);
+  // Reward coins
+  const handleReward = (rewardCoins: number) => {
+    setCoins((previous) => previous + rewardCoins);
   };
 
-  // Complete current level
+  // Reward XP
+  const handleXPReward = (rewardXP: number) => {
+    setXp((previous) => previous + rewardXP);
+  };
+
+  // Complete level
   const handleLevelComplete = () => {
-    if (level >= 5) {
-      setLevel(6);
-      setCurrentPage("completed");
-    } else {
-      setLevel((previousLevel) => previousLevel + 1);
+    setLevel((previous) => {
+      const nextLevel = previous + 1;
+
+      if (nextLevel > 5) {
+        setCurrentPage("completed");
+        return 6;
+      }
+
       setCurrentPage("dashboard");
-    }
+      return nextLevel;
+    });
   };
 
-  // Restart the entire game
+  // Play again
   const handlePlayAgain = () => {
     setCoins(0);
     setXp(0);
@@ -142,74 +187,38 @@ export default function Home() {
     setCurrentPage("dashboard");
   };
 
-  // Save progress to localStorage
-  useEffect(() => {
-    if (!username) return;
+  // Background music
+  const toggleMusic = () => {
+    if (!audioRef.current) return;
 
-    const progress: PlayerProgress = {
-      coins,
-      xp,
-      level,
-    };
-
-    localStorage.setItem(
-      `underwaterProgress_${username}`,
-      JSON.stringify(progress)
-    );
-  }, [username, coins, xp, level]);
-
-  // Save progress to SQLite leaderboard
-  useEffect(() => {
-    if (!username) return;
-
-    const saveProgress = async () => {
-      try {
-        const response = await fetch("/api/leaderboard", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            username,
-            coins,
-            xp,
-            level,
-          }),
+    if (musicOn) {
+      audioRef.current.pause();
+      setMusicOn(false);
+    } else {
+      audioRef.current.play()
+        .then(() => setMusicOn(true))
+        .catch((error) => {
+          console.error("Music Error:", error);
         });
+    }
+  };
 
-        if (!response.ok) {
-          console.error(
-            "Failed to save leaderboard progress:",
-            await response.text()
-          );
-        }
-      } catch (error) {
-        console.error("Leaderboard save error:", error);
-      }
-    };
-
-    saveProgress();
-  }, [username, coins, xp, level]);
+  if (checkingSession) {
+    return (
+      <main className="min-h-screen flex items-center justify-center bg-slate-950 text-white">
+        <p className="text-lg">Loading Underwater Adventure...</p>
+      </main>
+    );
+  }
 
   return (
-    <main>
+    <main className="min-h-screen">
       <audio
         ref={audioRef}
         src="/music/ocean.mp3"
         loop
-        preload="auto"
       />
 
-      {/* Background Music Button */}
-      <button
-        type="button"
-        onClick={toggleMusic}
-        className="fixed bottom-5 right-5 z-50 rounded-full bg-cyan-400 px-5 py-3 font-bold text-blue-950 shadow-lg hover:bg-cyan-300"
-      >
-        {musicOn ? "🔊 Music ON" : "🔇 Music OFF"}
-      </button>
-
-      {/* Login Page */}
       {currentPage === "login" && (
         <Login
           onLogin={loadPlayer}
@@ -217,7 +226,6 @@ export default function Home() {
         />
       )}
 
-      {/* Register Page */}
       {currentPage === "register" && (
         <Register
           onRegister={loadPlayer}
@@ -225,19 +233,17 @@ export default function Home() {
         />
       )}
 
-      {/* Dashboard Page */}
       {currentPage === "dashboard" && (
         <Dashboard
           username={username}
           coins={coins}
           xp={xp}
           level={level}
-          onPlay={() => setCurrentPage("game")}
+          onPlay={handlePlay}
           onLogout={handleLogout}
         />
       )}
 
-      {/* Game Page */}
       {currentPage === "game" && (
         <FishGame
           onBack={() => setCurrentPage("dashboard")}
@@ -248,76 +254,47 @@ export default function Home() {
         />
       )}
 
-      {/* Game Completed Screen */}
       {currentPage === "completed" && (
-        <section className="flex min-h-screen items-center justify-center bg-gradient-to-b from-[#001b4d] via-[#006994] to-[#00b4d8] p-5">
-          <div className="w-full max-w-lg rounded-3xl bg-white p-8 text-center shadow-2xl">
+        <div className="min-h-screen flex flex-col items-center justify-center text-center text-white bg-gradient-to-b from-blue-950 to-slate-950 p-6">
+          <h1 className="text-4xl md:text-6xl font-bold mb-6">
+            Adventure Completed!
+          </h1>
 
-            <div className="mb-4 text-7xl">
-              🏆
-            </div>
+          <p className="text-xl mb-4">
+            Congratulations, {username}!
+          </p>
 
-            <h1 className="mb-3 text-4xl font-extrabold text-blue-900">
-              Game Completed!
-            </h1>
+          <p className="text-lg mb-2">
+            Total Coins: {coins}
+          </p>
 
-            <p className="mb-8 text-gray-600">
-              Congratulations! You completed all 5 underwater levels!
-            </p>
+          <p className="text-lg mb-8">
+            Total XP: {xp}
+          </p>
 
-            <div className="mb-8 grid grid-cols-2 gap-4">
+          <button
+            onClick={handlePlayAgain}
+            className="px-8 py-3 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold transition"
+          >
+            Play Again
+          </button>
 
-              <div className="rounded-xl bg-yellow-100 p-5">
-                <p className="text-3xl">🪙</p>
-
-                <p className="mt-2 text-2xl font-bold text-yellow-700">
-                  {coins}
-                </p>
-
-                <p className="font-semibold text-gray-700">
-                  Total Coins
-                </p>
-              </div>
-
-              <div className="rounded-xl bg-purple-100 p-5">
-                <p className="text-3xl">⭐</p>
-
-                <p className="mt-2 text-2xl font-bold text-purple-700">
-                  {xp}
-                </p>
-
-                <p className="font-semibold text-gray-700">
-                  Total XP
-                </p>
-              </div>
-
-            </div>
-
-            <p className="mb-6 font-bold text-green-600">
-              🌊 You are an Underwater Champion!
-            </p>
-
-            <div className="space-y-3">
-
-              <button
-                onClick={handlePlayAgain}
-                className="w-full rounded-xl bg-cyan-600 py-3 font-bold text-white hover:bg-cyan-700"
-              >
-                🔄 Play Again
-              </button>
-
-              <button
-                onClick={() => setCurrentPage("dashboard")}
-                className="w-full rounded-xl bg-blue-900 py-3 font-bold text-white hover:bg-blue-950"
-              >
-                ← Dashboard
-              </button>
-
-            </div>
-
-          </div>
-        </section>
+          <button
+            onClick={handleLogout}
+            className="mt-4 px-8 py-3 rounded-xl bg-white/10 hover:bg-white/20 text-white font-semibold transition"
+          >
+            Logout
+          </button>
+        </div>
       )}
+
+      <button
+        onClick={toggleMusic}
+        className="fixed bottom-5 right-5 z-50 rounded-full bg-cyan-500 p-4 text-white shadow-lg hover:bg-cyan-400 transition"
+        aria-label="Toggle background music"
+      >
+        {musicOn ? "🔊" : "🔇"}
+      </button>
     </main>
   );
 }
