@@ -37,7 +37,7 @@ export default function Dashboard({
     const [leaderboardLoading, setLeaderboardLoading] = useState(true);
     const [leaderboardError, setLeaderboardError] = useState("");
 
-    // Load leaderboard from SQLite database
+    // Load leaderboard from MySQL database
     const loadLeaderboard = useCallback(async () => {
         try {
             setLeaderboardLoading(true);

@@ -247,8 +247,8 @@ export default function FishGame({
                         </div>
 
                         <div className={`rounded-xl border px-4 py-2 text-center ${timeLeft <= 5
-                                ? "border-red-300/40 bg-red-500/20"
-                                : "border-yellow-300/20 bg-yellow-500/10"
+                            ? "border-red-300/40 bg-red-500/20"
+                            : "border-yellow-300/20 bg-yellow-500/10"
                             }`}>
                             <p className="text-[10px] font-bold text-yellow-200/70">
                                 TIME LEFT
@@ -267,8 +267,8 @@ export default function FishGame({
                 <section className="mb-3 flex shrink-0 items-center justify-center gap-3">
 
                     <div className={`rounded-full border px-5 py-2 text-xs font-black transition sm:text-sm ${round === "fish"
-                            ? "border-cyan-300/60 bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-lg shadow-cyan-500/20"
-                            : "border-emerald-300/40 bg-emerald-500/15 text-emerald-300"
+                        ? "border-cyan-300/60 bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-lg shadow-cyan-500/20"
+                        : "border-emerald-300/40 bg-emerald-500/15 text-emerald-300"
                         }`}>
                         🐠 Fish Round {round === "chest" ? "✓" : ""}
                     </div>
@@ -276,8 +276,8 @@ export default function FishGame({
                     <div className="h-1 w-6 rounded-full bg-cyan-300/30 sm:w-12" />
 
                     <div className={`rounded-full border px-5 py-2 text-xs font-black transition sm:text-sm ${round === "chest"
-                            ? "border-cyan-300/60 bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-lg shadow-cyan-500/20"
-                            : "border-white/10 bg-white/5 text-white/40"
+                        ? "border-cyan-300/60 bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-lg shadow-cyan-500/20"
+                        : "border-white/10 bg-white/5 text-white/40"
                         }`}>
                         💎 Chest Round
                     </div>
@@ -288,8 +288,8 @@ export default function FishGame({
                 <div className="mb-3 h-2 shrink-0 overflow-hidden rounded-full border border-white/10 bg-black/30 p-[2px]">
                     <div
                         className={`h-full rounded-full transition-all duration-1000 ${timeLeft <= 5
-                                ? "bg-gradient-to-r from-red-500 to-orange-400"
-                                : "bg-gradient-to-r from-cyan-400 to-emerald-300"
+                            ? "bg-gradient-to-r from-red-500 to-orange-400"
+                            : "bg-gradient-to-r from-cyan-400 to-emerald-300"
                             }`}
                         style={{ width: `${progress}%` }}
                     />
@@ -462,10 +462,10 @@ export default function FishGame({
                         {/* Message */}
                         {message && (
                             <div className={`mt-4 rounded-xl border p-3 text-center text-sm font-bold ${levelFinished
-                                    ? "border-emerald-300/30 bg-emerald-400/10 text-emerald-300"
-                                    : message.includes("Incorrect") || message.includes("Time is up") || message.includes("failed")
-                                        ? "border-red-300/30 bg-red-400/10 text-red-300"
-                                        : "border-cyan-300/30 bg-cyan-400/10 text-cyan-200"
+                                ? "border-emerald-300/30 bg-emerald-400/10 text-emerald-300"
+                                : message.includes("Incorrect") || message.includes("Time is up") || message.includes("failed")
+                                    ? "border-red-300/30 bg-red-400/10 text-red-300"
+                                    : "border-cyan-300/30 bg-cyan-400/10 text-cyan-200"
                                 }`}>
                                 {message}
                             </div>
